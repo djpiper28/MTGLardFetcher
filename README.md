@@ -11,5 +11,6 @@ Python 3 and the awesome [PRAW module](https://praw.readthedocs.io/en/stable/)
     export CLIENT_ID=<client id from reddit app>
     export CLIENT_SECRET=<yes it's really secret>
     export REFRESH_TOKEN=<obtained from access request>
+    export TOKEN=<discord token>
     
     python3 MTGLardFetcher.py 
