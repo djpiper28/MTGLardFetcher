@@ -12,4 +12,4 @@ Python 3 and the awesome [PRAW module](https://praw.readthedocs.io/en/stable/)
     export CLIENT_SECRET=<yes it's really secret>
     export REFRESH_TOKEN=<obtained from access request>
     
-    python MTGLardFetcher.py 
+    python3 MTGLardFetcher.py 
