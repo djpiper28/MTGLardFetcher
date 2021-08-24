@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
+from discord import *
 import praw
 import re
 import sys
 import time
 import random
-import sqlite3
+#import sqlite3
 import os
 from tendo import singleton
 import sys
@@ -16,37 +17,7 @@ import importlib
 importlib.reload(sys)
 #sys.setdefaultencoding('utf-8')
 
-conn = sqlite3.connect('state.sqlite')
-cursor = conn.cursor()
 persistence = True
-
-
-def check_condition(c, r):
-    pp = pprint.PrettyPrinter(indent=4)
-    text = c.body
-    matches = get_matches(text)
-    comment_id =  c.id
-    comment_author = str(c.author)
-    cursor.execute('SELECT comment_id FROM replied WHERE comment_id=?', (c.id, ))
-    already_replied = cursor.fetchone()
-    holytopic = 'Weekly /unjerk Thread' 
-
-    #print "checking comment in thread " + pp.pformat(vars(c)) + " -- " + comment_id + " matches " + str(matches) + " replied " + str(already_replied)
-    #print "checking comment in thread -" + c.link_title + "-:" + holytopic +  ": -- " + comment_id + " matches " + str(matches) + " replied " + str(already_replied)
-
-    print(f"{comment_id} {comment_author} {already_replied} {matches}")
-
-    # don't reply twice and never reply to own comment to prevent possible loops
-    if (matches and 
-        already_replied is None and 
-        c.author != 'MTGLardFetcher' and 
-        c.link_title != holytopic):
-
-        print("replying to unanswered comment " + comment_id)
-        return matches
-    else:
-        print("ignoring answered/uneligible comment " + comment_id)
-        return False
 
 def get_matches(text):
     matches = re.findall(r'\[\[([^\[\]]*?)\]\]', text)
@@ -74,42 +45,47 @@ def get_links(r):
     return candidates        
         
 
-def bot_action(c, matches, links, respond=False):
-
-    text = "^(Probably totally what you linked)\n\n"
+async def bot_action(c, matches, links, channel):
 
     for m in matches:
         #print m
         link = random.choice(links)
-        text += " * [" +m+ "]("+ link + ")\n"
+        embed = Embed(title = " - [" +m+ "]", url=link)
+        embed.set_image(url=link)
+        await channel.send(embed = embed)
 
 
-    text += " "
-    text += "\n"
-    text += "\n"
-    text += "*********\n\n"
-    text += """^^^If ^^^WotC ^^^didn't ^^^do ^^^anything ^^^wrong ^^^this ^^^week, 
-            ^^^you ^^^can ^^^rage ^^^at ^^^this ^^^bot ^^^instead ^^^at
-            ^^^/r/MTGLardFetcher ^^^or ^^^even ^^^submit ^^^some ^^^of 
-            ^^^the ^^^sweet ^^^Siege ^^^Rhino ^^^alters ^^^your ^^^GF ^^^made\n"""
-    #print text
+    text = """If WotC didn't do anything wrong this week, 
+            you can rage at this bot instead at
+            https://reddit.com/r/MTGLardFetcher or, even submit some of 
+            the sweet Siege Rhino alters your GF made\n"""
+    
+    await channel.send(embed=Embed(title="^(Probably totally what you linked)\n\n", description=text, url="https://reddit.com/r/MTGLardFetcher"))
+    
 
-    if respond:
-        try:
-            c.reply(text)
-        except praw.errors.APIException:
-            print("TOO_OLD or some other crap, going on")
-        finally: 
-            cursor.execute('insert into replied (comment_id) values (?)', (c.id, ))
-            conn.commit()
+class MyClient(Client):
+    def __init__(self, c, links):
+        super().__init__()
+        self.c = c
+        self.links = links
+        self.last_refresh = 0
+    
+    async def on_ready(self):
+        print('Logged on as {0}!'.format(self.user))
+
+    async def on_message(self, ctx):
+        now = int(time.time()) 
+        if (now - self.last_refresh > 60):            
+            self.last_refresh = now
+            self.links = get_links(r)
+            
+        if not ctx.author.bot:
+            await bot_action(self.c, get_matches(ctx.content), self.links, ctx.channel)
 
 
 if __name__ == '__main__':
 
     me = singleton.SingleInstance()
-
-    cursor.execute('''CREATE TABLE IF NOT EXISTS replied (comment_id text)''')
-    conn.commit()
 
     UA = 'MTGLardFetcher, a MTGCardFetcher Parody bot for /r/magicthecirclejerking. Kindly direct complaints to /u/0x2a'
     #r = praw.Reddit(UA)
@@ -123,18 +99,6 @@ if __name__ == '__main__':
 
     last_refresh = int(time.time())
     links = get_links(r)
-
-    #target = '0x2a_personal' 
-    target = 'magicthecirclejerking' 
-
-    for c in r.subreddit(target).stream.comments():
-        matches = check_condition(c, r)
-        if matches:    
-            now = int(time.time()) 
-            if (now - last_refresh > 60): 
-                links = get_links(r)
-                last_refresh = now
-
-            bot_action(c, matches, links, True)
-
-    conn.close()
+    
+    client = MyClient(r, links)
+    client.run(os.getenv('TOKEN'))
