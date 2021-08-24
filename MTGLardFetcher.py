@@ -46,8 +46,9 @@ def get_links(r):
         
 
 async def bot_action(c, matches, links, channel):
-
+    act = False
     for m in matches:
+        act = True
         #print m
         link = random.choice(links)
         embed = Embed(title = " - [" +m+ "]", url=link)
@@ -59,8 +60,8 @@ async def bot_action(c, matches, links, channel):
             you can rage at this bot instead at
             https://reddit.com/r/MTGLardFetcher or, even submit some of 
             the sweet Siege Rhino alters your GF made\n"""
-    
-    await channel.send(embed=Embed(title="^(Probably totally what you linked)\n\n", description=text, url="https://reddit.com/r/MTGLardFetcher"))
+    if act:
+        await channel.send(embed=Embed(title="^(Probably totally what you linked)\n\n", description=text, url="https://reddit.com/r/MTGLardFetcher"))
     
 
 class MyClient(Client):
